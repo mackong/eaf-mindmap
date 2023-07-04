@@ -18,23 +18,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PyQt6 import QtCore
-from PyQt6.QtCore import QUrl, QTimer, QEvent, QPointF, Qt
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QColor, QMouseEvent
-from core.webengine import BrowserBuffer
-from core.utils import (touch, string_to_base64, interactive, 
-                        eval_in_emacs, message_to_emacs, 
-                        get_emacs_vars, PostGui, get_app_dark_mode)
-from html import escape, unescape
-import os
 import base64
-import time
-import sys
-Py_version=sys.version_info
 import json
+import os
 import random
+import sys
+import time
+from html import escape, unescape
 
+from core.utils import *
+from core.webengine import BrowserBuffer
+from PyQt6 import QtCore
+from PyQt6.QtCore import QEvent, QPointF, Qt, QTimer, QUrl
+from PyQt6.QtGui import QMouseEvent
+
+Py_version=sys.version_info
 
 class AppBuffer(BrowserBuffer):
 
@@ -79,15 +77,16 @@ class AppBuffer(BrowserBuffer):
     def resize_view(self):
         self.buffer_widget.eval_js_function("relayout")
 
+    @PostGui()
     def initialize(self):
         self.init_file()
 
         # The .jsmind-inner element is move right and bottom 30px,
         # so we must use a point greater than (30, 30), ex (100, 100).
-        self.focus_widget(QMouseEvent(QEvent.Type.MouseButtonPress, 
-                                      QPointF(100, 100), 
-                                      Qt.MouseButton.LeftButton, 
-                                      Qt.MouseButton.LeftButton, 
+        self.focus_widget(QMouseEvent(QEvent.Type.MouseButtonPress,
+                                      QPointF(100, 100),
+                                      Qt.MouseButton.LeftButton,
+                                      Qt.MouseButton.LeftButton,
                                       Qt.KeyboardModifier.NoModifier))
 
     def init_file(self):
@@ -111,6 +110,11 @@ class AppBuffer(BrowserBuffer):
         self.buffer_widget.eval_js_function("init_background", self.theme_background_color)
 
         self.change_title(self.get_title())
+
+    @interactive
+    def update_theme(self):
+        super().update_theme()
+        self.buffer_widget.eval_js_function("init_background", self.theme_background_color)
 
     def build_js_method(self, method_name, auto_save=False, js_kwargs=None):
         js_kwargs = js_kwargs or {}
@@ -145,6 +149,7 @@ class AppBuffer(BrowserBuffer):
             self.change_title(self.get_title())
             message_to_emacs("refresh file")
 
+    @PostGui()
     def file_changed(self, path):
         mode = get_emacs_vars(['major-mode'])[0].value()
         if mode != "eaf-mode":
@@ -210,6 +215,7 @@ class AppBuffer(BrowserBuffer):
 
         self.save_file(False)
 
+    @PostGui()
     def handle_input_response(self, callback_tag, result_content):
         if callback_tag == "update_node_topic":
             self.handle_update_node_topic(str(result_content))
@@ -223,14 +229,14 @@ class AppBuffer(BrowserBuffer):
 
     def add_multiple_sub_nodes(self):
         node_id = self.buffer_widget.execute_js("_jm.get_selected_node();")
-        if node_id != None:
+        if node_id is not None:
             eval_in_emacs('eaf--add-multiple-sub-nodes', [self.buffer_id])
         else:
             message_to_emacs("No selected node.")
 
     def add_multiple_brother_nodes(self):
         node_id = self.buffer_widget.execute_js("_jm.get_selected_node();")
-        if node_id == None:
+        if node_id is None:
             message_to_emacs("No selected node.")
         elif not self.buffer_widget.execute_js("_jm.get_selected_node().parent;"):
             message_to_emacs("No parent node for selected node.")
@@ -239,7 +245,7 @@ class AppBuffer(BrowserBuffer):
 
     def add_multiple_middle_nodes(self):
         node_id = self.buffer_widget.execute_js("_jm.get_selected_node();")
-        if node_id == None:
+        if node_id is None:
             message_to_emacs("No selected node.")
         elif not self.buffer_widget.execute_js("_jm.get_selected_node().parent;"):
             message_to_emacs("No parent node for selected node.")
@@ -369,7 +375,7 @@ class HeaderTree:
         self.header_list = []
         self.data = {}
         self.header_prefix = "*"
-        self.root_name = os.path.basename(url), 
+        self.root_name = os.path.basename(url),
         if url.endswith(".org"):
             self.header_prefix = "*"
         elif url.endswith(".md"):
